@@ -1,37 +1,43 @@
-using UnityEngine;
+ï»¿using UnityEngine;
+using UnityEngine.InputSystem;
 
 public class MouseLook : MonoBehaviour
 {
     [Header("Sensibilidad")]
-    public float mouseSensitivity = 1000f;
+    public float mouseSensitivity = 0.15f;
 
-    [Header("Límite vertical (grados)")]
+    [Header("LÃ­mite vertical (grados)")]
     public float clampAngle = 80f;
 
+    [Header("Arrastra el Capsule aquÃ­")]
+    public Transform playerBody;
+
     private float xRotation = 0f;
-    private Transform playerBody; // referencia al Player padre
 
     void Start()
     {
-        // El padre de la cámara es el Player
-        playerBody = transform.parent;
-
-        // Oculta y bloquea el cursor
         Cursor.lockState = CursorLockMode.Locked;
         Cursor.visible = false;
     }
 
     void Update()
     {
-        float mouseX = Input.GetAxis("Mouse X") * mouseSensitivity * Time.deltaTime;
-        float mouseY = Input.GetAxis("Mouse Y") * mouseSensitivity * Time.deltaTime;
+        var mouse = Mouse.current;
+        if (mouse == null) return;
 
-        // Rotación vertical (cámara sola, con clamp para no dar la vuelta)
+        Vector2 delta = mouse.delta.ReadValue();
+
+        float mouseX = delta.x * mouseSensitivity;
+        float mouseY = delta.y * mouseSensitivity;
+
         xRotation -= mouseY;
         xRotation = Mathf.Clamp(xRotation, -clampAngle, clampAngle);
+
+        // Solo la cÃ¡mara rota verticalmente
         transform.localRotation = Quaternion.Euler(xRotation, 0f, 0f);
 
-        // Rotación horizontal (rota TODO el cuerpo del jugador)
-        playerBody.Rotate(Vector3.up * mouseX);
+        // El Capsule rota horizontalmente
+        if (playerBody != null)
+            playerBody.Rotate(Vector3.up * mouseX);
     }
 }

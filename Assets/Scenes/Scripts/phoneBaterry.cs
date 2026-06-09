@@ -61,4 +61,9 @@ public class PhoneBattery : MonoBehaviour
         mats[screenMaterialIndex] = batteryMaterials[index];
         screenRenderer.materials = mats;
     }
+    public void CargarBateria(float cantidad)
+    {
+        currentBattery = Mathf.Min(currentBattery + cantidad, maxBattery);
+        UpdateBatteryVisual();
+    }
 }

@@ -77,7 +77,6 @@ public class PickupSystem : MonoBehaviour
             lastHighlighted = null;
         }
 
-        // SphereCast igual que en CheckHighlight
         if (Physics.SphereCast(transform.position, 0.3f, transform.forward,
             out RaycastHit hit, pickupRange, pickupMask))
         {
@@ -96,16 +95,22 @@ public class PickupSystem : MonoBehaviour
                 heldObject = p;
                 heldObject.isHeld = true;
 
+                // Desactiva el Rigidbody completamente — sin gravedad, sin físicas
                 Rigidbody rb = heldObject.GetComponent<Rigidbody>();
                 if (rb != null)
                 {
                     rb.isKinematic = true;
+                    rb.useGravity = false;
+                    rb.linearVelocity = Vector3.zero;
+                    rb.angularVelocity = Vector3.zero;
                     rb.constraints = RigidbodyConstraints.FreezeAll;
                 }
 
+                // Pega el teléfono al HoldPoint — posición y rotación fijas
                 heldObject.transform.SetParent(holdPoint);
                 heldObject.transform.localPosition = Vector3.zero;
                 heldObject.transform.localRotation = Quaternion.identity;
+                heldObject.transform.localScale = Vector3.one;
             }
         }
     }
@@ -115,20 +120,24 @@ public class PickupSystem : MonoBehaviour
         if (spotlight != null)
             spotlight.enabled = false;
 
-        heldObject.transform.SetParent(null);
-
+        // Reactiva el Rigidbody al soltar
         Rigidbody rb = heldObject.GetComponent<Rigidbody>();
         if (rb != null)
         {
             rb.isKinematic = false;
+            rb.useGravity = true;
+            rb.linearVelocity = Vector3.zero;
+            rb.angularVelocity = Vector3.zero;
             rb.constraints = RigidbodyConstraints.FreezeRotationX
                            | RigidbodyConstraints.FreezeRotationY
                            | RigidbodyConstraints.FreezeRotationZ;
         }
 
+        heldObject.transform.SetParent(null);
         heldObject.isHeld = false;
         heldObject = null;
     }
+
 
     void FixedUpdate()
     {
