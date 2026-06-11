@@ -1,23 +1,23 @@
-using UnityEngine;
+ï»¿using UnityEngine;
 using TMPro;
+using UnityEngine.InputSystem;
 
 public class ItemPickup : MonoBehaviour
 {
     public enum TipoItem { Bateria, Llave, Papel }
 
-    [Header("Configuración")]
+    [Header("ConfiguraciÃ³n")]
     public TipoItem tipo;
-    public float recargaBateria = 30f;     // Solo si tipo == Bateria
-    public string idLlave = "llave_sala1"; // ID único de esta llave
-    public string textoPapel = "El código es 4782"; // Texto de la nota
+    public float recargaBateria = 30f;
+    public string idLlave = "llave_sala1";
+    public string textoPapel = "El cÃ³digo es 2908";
 
-    [Header("UI Nota")]
-    public GameObject panelNota;           // Panel UI que muestra el texto
+    [Header("UI Nota - Canvas World Space")]
+    public GameObject panelNota;
     public TextMeshProUGUI textoUI;
 
     private FlashlightController linterna;
     private PlayerInventory inventario;
-    private bool mostrandoNota = false;
 
     void Start()
     {
@@ -26,35 +26,24 @@ public class ItemPickup : MonoBehaviour
         if (panelNota) panelNota.SetActive(false);
     }
 
-    void Update()
-    {
-        // Cerrar nota con E
-        if (mostrandoNota && Input.GetKeyDown(KeyCode.E))
-        {
-            panelNota.SetActive(false);
-            mostrandoNota = false;
-            Time.timeScale = 1f; // Reanudar juego
-        }
-    }
-
-    // Se llama cuando el jugador presiona E cerca del objeto
     public void Recoger()
     {
         switch (tipo)
         {
             case TipoItem.Bateria:
                 linterna.AddBattery(recargaBateria);
-                Destroy(gameObject); // Desaparece al recoger
+                Destroy(gameObject);
                 break;
-
             case TipoItem.Llave:
                 inventario.AgregarLlave(idLlave);
                 Destroy(gameObject);
                 break;
-
             case TipoItem.Papel:
-                MostrarNota();
-                break; // El papel NO desaparece, solo se lee
+                if (panelNota.activeSelf)
+                    panelNota.SetActive(false);
+                else
+                    MostrarNota();
+                break;
         }
     }
 
@@ -63,7 +52,5 @@ public class ItemPickup : MonoBehaviour
         if (panelNota == null) return;
         textoUI.text = textoPapel;
         panelNota.SetActive(true);
-        mostrandoNota = true;
-        Time.timeScale = 0f; // Pausar mientras lees
     }
 }

@@ -13,18 +13,20 @@ public class InteractionSystem : MonoBehaviour
 
     void Update()
     {
-        // Nuevo Input System
         if (Keyboard.current.eKey.wasPressedThisFrame)
-        {
-            Debug.Log("E presionado");
             IntentarInteractuar();
-        }
-
         ActualizarOutline();
     }
 
     void ActualizarOutline()
     {
+        if (GameState.UIAbierta) // No mostrar outline si hay UI
+        {
+            if (outlineActual != null) outlineActual.OcultarOutline();
+            outlineActual = null;
+            if (textoInteraccion != null) textoInteraccion.SetActive(false);
+            return;
+        }
         Collider[] cercanos = Physics.OverlapSphere(
             transform.position, rangoInteraccion, capaInteractuable);
 
@@ -61,35 +63,33 @@ public class InteractionSystem : MonoBehaviour
 
     void IntentarInteractuar()
     {
-        Collider[] cercanos = Physics.OverlapSphere(
-            transform.position, rangoInteraccion, capaInteractuable);
+        if (GameState.UIAbierta) return;
 
-        if (cercanos.Length == 0) return;
-
-        Collider masCercano = null;
-        float menorDist = float.MaxValue;
-
+        // 1. BUSCAR PUERTAS Y COMPROBAR SI ESTÁN CERRADAS
+        Collider[] cercanos = Physics.OverlapSphere(transform.position, rangoInteraccion, capaInteractuable);
         foreach (Collider col in cercanos)
         {
-            // Ignorar colliders del propio jugador
-            if (col.transform.IsChildOf(transform) || col.transform == transform) continue;
-
-            float dist = Vector3.Distance(transform.position, col.transform.position);
-            if (dist < menorDist)
+            DoorController puerta = col.GetComponentInParent<DoorController>();
+            if (puerta != null)
             {
-                menorDist = dist;
-                masCercano = col;
+                // Si la puerta existe y ESTÁ CERRADA, intentamos abrirla y salimos
+                if (!puerta.EstaAbierta())
+                {
+                    puerta.IntentarAbrir();
+                    return; // AQUÍ ES DONDE SE CORTA EL CÓDIGO. No busca llaves si la puerta sigue cerrada.
+                }
             }
         }
 
-        if (masCercano == null) return;
-
-        Debug.Log("Interactuando con: " + masCercano.gameObject.name);
-
-        ItemPickup item = masCercano.GetComponentInParent<ItemPickup>();
-        if (item != null) { item.Recoger(); return; }
-
-        DoorController puerta = masCercano.GetComponentInParent<DoorController>();
-        if (puerta != null) { puerta.IntentarAbrir(); return; }
+        // 2. SI NO HUBO PUERTAS CERRADAS, BUSCAMOS LA LLAVE
+        ItemPickup[] todosLosItems = FindObjectsByType<ItemPickup>(FindObjectsSortMode.None);
+        foreach (ItemPickup item in todosLosItems)
+        {
+            if (Vector3.Distance(transform.position, item.transform.position) <= rangoInteraccion)
+            {
+                item.Recoger();
+                return;
+            }
+        }
     }
 }

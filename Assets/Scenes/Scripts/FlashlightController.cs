@@ -15,6 +15,7 @@ public class FlashlightController : MonoBehaviour
     void Start()
     {
         currentBattery = maxBattery;
+        flashlight.enabled = true;
     }
 
     void Update()

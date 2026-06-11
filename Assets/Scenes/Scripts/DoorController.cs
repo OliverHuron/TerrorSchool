@@ -1,6 +1,8 @@
+ï»¿using UnityEngine;
+using TMPro;
 using UnityEngine;
 using TMPro;
-
+using System.Collections;
 public class DoorController : MonoBehaviour
 {
     public enum TipoPuerta { RequiereLlave, RequiereCodigo, CajaFuerte, LlaveDorada }
@@ -13,12 +15,17 @@ public class DoorController : MonoBehaviour
     [Header("Puerta de escape (llave dorada)")]
     public bool esPuertaEscape = false;
 
-    [Header("UI Código")]
+    [Header("UI CÃ³digo")]
     public GameObject panelCodigo;
     public TMP_InputField campoCodigo;
 
     private bool abierta = false;
     private PlayerInventory inventario;
+    // AÃ±ade esto en tu DoorController.cs
+    public bool EstaAbierta()
+    {
+        return abierta;
+    }
 
     void Start()
     {
@@ -54,22 +61,23 @@ public class DoorController : MonoBehaviour
         }
     }
 
-    // Llamado desde el botón OK del panel de código
+    // Llamado desde el botÃ³n OK del panel de cÃ³digo
     public void VerificarCodigo()
     {
         if (campoCodigo.text == codigoCorrecto)
         {
             panelCodigo.SetActive(false);
-            Time.timeScale = 1f;
-
+            Cursor.lockState = CursorLockMode.Locked;
+            Cursor.visible = false;
+            GameState.UIAbierta = false;
             if (tipo == TipoPuerta.CajaFuerte)
-                SpawnLlaveDorada(); // La caja suelta la llave dorada
+                SpawnLlaveDorada();
             else
                 Abrir();
         }
         else
         {
-            Debug.Log("Código incorrecto");
+            Debug.Log("CÃ³digo incorrecto");
             campoCodigo.text = "";
         }
     }
@@ -78,28 +86,46 @@ public class DoorController : MonoBehaviour
     {
         if (panelCodigo == null) return;
         panelCodigo.SetActive(true);
-        Time.timeScale = 0f;
+        GameState.UIAbierta = true;
+        Cursor.lockState = CursorLockMode.None;
+        Cursor.visible = true;
     }
 
     void Abrir()
     {
         abierta = true;
-        // Animación simple: rotar la puerta 90°
-        transform.Rotate(0, 90, 0);
-        Debug.Log("Puerta abierta: " + gameObject.name);
+        StartCoroutine(AnimarApertura());
     }
 
+    IEnumerator AnimarApertura()
+    {
+        float duracion = 1f; // segundos que tarda en abrirse
+        float tiempo = 0f;
+        Quaternion rotacionInicial = transform.rotation;
+        Quaternion rotacionFinal = rotacionInicial * Quaternion.Euler(0, 90, 0);
+
+        while (tiempo < duracion)
+        {
+            tiempo += Time.deltaTime;
+            float t = tiempo / duracion;
+            t = t * t * (3f - 2f * t); // suavizado SmoothStep
+            transform.rotation = Quaternion.Lerp(rotacionInicial, rotacionFinal, t);
+            yield return null;
+        }
+
+        transform.rotation = rotacionFinal;
+    }
     void SpawnLlaveDorada()
     {
         // La llave dorada se agrega directamente al inventario
         FindObjectOfType<PlayerInventory>().AgregarLlave("llave_dorada");
-        Debug.Log("¡Llave dorada conseguida!");
+        Debug.Log("Â¡Llave dorada conseguida!");
         // Opcional: instanciar un prefab de llave que puedas ver
     }
 
     void EscaparJuego()
     {
-        Debug.Log("¡Escapaste! — aquí cargas escena de victoria");
+        Debug.Log("Â¡Escapaste! â€” aquÃ­ cargas escena de victoria");
         // UnityEngine.SceneManagement.SceneManager.LoadScene("Victoria");
     }
 }

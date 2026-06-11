@@ -1,15 +1,18 @@
-using UnityEngine;
+﻿using UnityEngine;
 using System.Collections;
 
 public class GhostController : MonoBehaviour
 {
-    [Header("Aparici�n")]
-    public float distanciaAparicion = 3f;    // Qu� tan lejos aparece frente al jugador
-    public float tiempoVisible = 1.5f;        // Cu�ntos segundos es visible
-    public float tiempoEntreApariciones = 12f; // Cada cu�nto aparece
+    [Header("Aparición")]
+    public float distanciaAparicion = 3f;    // Qué tan lejos aparece frente al jugador
+    public float tiempoVisible = 1.5f;        // Cuántos segundos es visible
+    public float tiempoEntreApariciones = 12f; // Cada cuánto aparece
 
-    [Header("Posici�n")]
+    [Header("Posición")]
     public Transform holdPoint;
+
+    [Header("Jumpscare")]
+    public JumpscareEffect jumpscare;
 
     [Header("Luz")]
     public float anguloDeteccionLuz = 45f;
@@ -19,6 +22,8 @@ public class GhostController : MonoBehaviour
     private FlashlightController linterna;
     private bool visible = false;
     private float tiempoIluminado = 0f;
+
+    private Vector3 posicionFija;
 
     void Start()
     {
@@ -32,7 +37,7 @@ public class GhostController : MonoBehaviour
         }
         else
         {
-            Debug.LogError("No se encontr� el player");
+            Debug.LogError("No se encontró el player");
             enabled = false;
             return;
         }
@@ -45,25 +50,21 @@ public class GhostController : MonoBehaviour
         Debug.Log("Ciclo de apariciones iniciado");
 
         // Aparecer inmediatamente al iniciar para probar
-        StartCoroutine(Aparecer());
+       
     }
 
     void Update()
     {
         if (!visible || jugador == null || linterna == null) return;
 
-        // Siempre mirar al jugador mientras es visible
-        transform.LookAt(new Vector3(
-            jugador.position.x,
-            transform.position.y,
-            jugador.position.z));
+        transform.position = posicionFija;
+        // Sin LookAt, posición y rotación completamente fijas
 
-        // Detectar si la linterna la apunta
         if (EstaIluminada())
         {
             tiempoIluminado += Time.deltaTime;
             if (tiempoIluminado >= tiempoParaDesaparecer)
-                StartCoroutine(Desaparecer());
+                StartCoroutine(Desaparecer(false));
         }
         else
         {
@@ -73,32 +74,28 @@ public class GhostController : MonoBehaviour
 
     IEnumerator CicloApariciones()
     {
+        // Esperar 5 segundos al inicio antes de la primera aparición
+        yield return new WaitForSeconds(5f);
+
         while (true)
         {
+            yield return StartCoroutine(Aparecer());
             yield return new WaitForSeconds(tiempoEntreApariciones);
-            if (!visible)
-                yield return StartCoroutine(Aparecer());
         }
     }
 
     IEnumerator Aparecer()
     {
-        Debug.Log("Aparecer() llamado");
-
         Vector3 direccion = Camera.main.transform.forward;
-        direccion.y = 0; // Ignorar si miras arriba o abajo
+        direccion.y = 0;
         direccion.Normalize();
 
-        Vector3 posicion = jugador.position + direccion * distanciaAparicion;
-        posicion.y = jugador.position.y; // Siempre a la altura del jugador
-        transform.position = posicion;
+        posicionFija = jugador.position + direccion * distanciaAparicion;
+        posicionFija.y = jugador.position.y;
+        transform.position = posicionFija;
 
+        transform.LookAt(new Vector3(jugador.position.x, transform.position.y, jugador.position.z));
         transform.rotation = Quaternion.Euler(0, transform.eulerAngles.y, 0);
-
-        transform.LookAt(new Vector3(
-            jugador.position.x,
-            transform.position.y,
-            jugador.position.z));
 
         SetVisible(true);
         tiempoIluminado = 0f;
@@ -106,14 +103,29 @@ public class GhostController : MonoBehaviour
         yield return new WaitForSeconds(tiempoVisible);
 
         if (visible)
-            StartCoroutine(Desaparecer());
+        {
+            bool linternaApagada = !linterna.IsLightOn();
+            yield return StartCoroutine(Desaparecer(linternaApagada));
+        }
     }
 
-    IEnumerator Desaparecer()
+    IEnumerator Desaparecer(bool mostrarJumpscare = false)
     {
         SetVisible(false);
         tiempoIluminado = 0f;
-        yield return null;
+
+        if (mostrarJumpscare && jumpscare != null)
+        {
+            yield return new WaitForSeconds(0.2f); // pequeña pausa dramática
+            jumpscare.Activar();
+
+            // Esperar que termine el jumpscare antes de pausar
+            yield return new WaitForSeconds(jumpscare.duracionVisible + 0.5f);
+
+            // Pausar el juego — pantalla de Game Over
+            Time.timeScale = 0f;
+            Debug.Log("GAME OVER");
+        }
     }
 
     void SetVisible(bool estado)
