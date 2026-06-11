@@ -6,7 +6,7 @@ public class FlashlightController : MonoBehaviour
     [Header("Batería")]
     public float maxBattery = 100f;       // Batería máxima
     public float drainRate = 5f;           // Cuánto drena por segundo
-    public float currentBattery;
+    [HideInInspector] public float currentBattery;
 
     [Header("Luz")]
     public Light flashlight;               // Arrastra tu Spotlight aquí

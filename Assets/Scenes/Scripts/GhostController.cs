@@ -1,54 +1,65 @@
 using UnityEngine;
-using UnityEngine.AI;
 using System.Collections;
 
 public class GhostController : MonoBehaviour
 {
-    [Header("Persecución")]
-    public float velocidadPersecucion = 3.5f;
-    public float distanciaDeteccion = 12f;   // A qué distancia detecta al jugador
+    [Header("Aparición")]
+    public float distanciaAparicion = 3f;    // Qué tan lejos aparece frente al jugador
+    public float tiempoVisible = 1.5f;        // Cuántos segundos es visible
+    public float tiempoEntreApariciones = 12f; // Cada cuánto aparece
+
+    [Header("Posición")]
+    public Transform holdPoint;
 
     [Header("Luz")]
-    public float anguloDeteccionLuz = 30f;   // Cono del spotlight
-    public float tiempoParaDesaparecer = 1.5f; // Segundos iluminado antes de desaparecer
+    public float anguloDeteccionLuz = 45f;
+    public float tiempoParaDesaparecer = 1.5f;
 
-    [Header("Spawn")]
-    public Transform[] puntosSpawn;          // Arrastra tus SpawnPoints aquí
-    public float tiempoEntreSpawns = 15f;    // Cada cuánto reaparece
-
-    private NavMeshAgent agente;
     private Transform jugador;
     private FlashlightController linterna;
+    private bool visible = false;
     private float tiempoIluminado = 0f;
-    private bool desapareciendo = false;
 
     void Start()
     {
-        agente = GetComponent<NavMeshAgent>();
-        agente.speed = velocidadPersecucion;
-        jugador = GameObject.FindGameObjectWithTag("Player").transform;
+        Debug.Log("GhostController iniciado");
+
+        GameObject playerObj = GameObject.FindGameObjectWithTag("Player");
+        if (playerObj != null)
+        {
+            jugador = playerObj.transform;
+            Debug.Log("Jugador encontrado");
+        }
+        else
+        {
+            Debug.LogError("No se encontró el player");
+            enabled = false;
+            return;
+        }
+
         linterna = FindObjectOfType<FlashlightController>();
+        Debug.Log("Linterna: " + (linterna != null ? "encontrada" : "NO encontrada"));
 
-        // Empezar en un spawn aleatorio
-        SpawnEnPuntoAleatorio();
+        SetVisible(false);
+        StartCoroutine(CicloApariciones());
+        Debug.Log("Ciclo de apariciones iniciado");
 
-        // Ciclo de reaparición
-        StartCoroutine(CicloSpawn());
+        // Aparecer inmediatamente al iniciar para probar
+        StartCoroutine(Aparecer());
     }
 
     void Update()
     {
-        if (desapareciendo) return;
+        if (!visible || jugador == null || linterna == null) return;
 
-        // Perseguir al jugador si está cerca
-        float distancia = Vector3.Distance(transform.position, jugador.position);
-        if (distancia < distanciaDeteccion)
-        {
-            agente.SetDestination(jugador.position);
-        }
+        // Siempre mirar al jugador mientras es visible
+        transform.LookAt(new Vector3(
+            jugador.position.x,
+            transform.position.y,
+            jugador.position.z));
 
-        // Revisar si la linterna la apunta
-        if (EstaIluminadaPorLinterna())
+        // Detectar si la linterna la apunta
+        if (EstaIluminada())
         {
             tiempoIluminado += Time.deltaTime;
             if (tiempoIluminado >= tiempoParaDesaparecer)
@@ -56,70 +67,75 @@ public class GhostController : MonoBehaviour
         }
         else
         {
-            tiempoIluminado = 0f; // Reiniciar si dejas de apuntarle
+            tiempoIluminado = 0f;
         }
     }
 
-    bool EstaIluminadaPorLinterna()
+    IEnumerator CicloApariciones()
     {
-        if (!linterna.IsLightOn()) return false;
-
-        // Vector del jugador hacia la niña
-        Vector3 dir = (transform.position - jugador.position).normalized;
-        float angulo = Vector3.Angle(jugador.forward, dir);
-
-        // ¿Está dentro del cono de la linterna?
-        if (angulo > anguloDeteccionLuz) return false;
-
-        // ¿Hay algo bloqueando (pared, etc.)?
-        RaycastHit hit;
-        if (Physics.Raycast(jugador.position, dir, out hit, 20f))
+        while (true)
         {
-            if (hit.transform == transform)
-                return true; // La niña es lo primero que golpea el rayo
+            yield return new WaitForSeconds(tiempoEntreApariciones);
+            if (!visible)
+                yield return StartCoroutine(Aparecer());
         }
-        return false;
+    }
+
+    IEnumerator Aparecer()
+    {
+        Debug.Log("Aparecer() llamado");
+
+        Vector3 direccion = Camera.main.transform.forward;
+        direccion.y = 0; // Ignorar si miras arriba o abajo
+        direccion.Normalize();
+
+        Vector3 posicion = jugador.position + direccion * distanciaAparicion;
+        posicion.y = jugador.position.y; // Siempre a la altura del jugador
+        transform.position = posicion;
+
+        transform.rotation = Quaternion.Euler(0, transform.eulerAngles.y, 0);
+
+        transform.LookAt(new Vector3(
+            jugador.position.x,
+            transform.position.y,
+            jugador.position.z));
+
+        SetVisible(true);
+        tiempoIluminado = 0f;
+
+        yield return new WaitForSeconds(tiempoVisible);
+
+        if (visible)
+            StartCoroutine(Desaparecer());
     }
 
     IEnumerator Desaparecer()
     {
-        desapareciendo = true;
-        agente.isStopped = true;
-
-        // Aquí puedes agregar animación de desvanecimiento
-        // Por ahora simplemente desactiva el renderer
-        GetComponent<Renderer>().enabled = false;
-
-        yield return new WaitForSeconds(2f);
-
-        // Mover a un nuevo spawn antes de reactivar
-        SpawnEnPuntoAleatorio();
-        GetComponent<Renderer>().enabled = true;
-        agente.isStopped = false;
-        desapareciendo = false;
+        SetVisible(false);
         tiempoIluminado = 0f;
+        yield return null;
     }
 
-    IEnumerator CicloSpawn()
+    void SetVisible(bool estado)
     {
-        while (true)
-        {
-            yield return new WaitForSeconds(tiempoEntreSpawns);
-            if (!desapareciendo)
-            {
-                // Cambiar de posición aunque el jugador no la haya visto
-                SpawnEnPuntoAleatorio();
-            }
-        }
+        visible = estado;
+        foreach (Renderer r in GetComponentsInChildren<Renderer>())
+            r.enabled = estado;
     }
 
-    void SpawnEnPuntoAleatorio()
+    bool EstaIluminada()
     {
-        if (puntosSpawn.Length == 0) return;
-        int i = Random.Range(0, puntosSpawn.Length);
-        // NavMesh.SamplePosition garantiza que aterrice en el NavMesh
-        NavMeshHit navHit;
-        if (NavMesh.SamplePosition(puntosSpawn[i].position, out navHit, 2f, NavMesh.AllAreas))
-            agente.Warp(navHit.position);
+        if (!linterna.IsLightOn()) return false;
+
+        Vector3 dir = (transform.position - jugador.position).normalized;
+        float angulo = Vector3.Angle(jugador.forward, dir);
+        if (angulo > anguloDeteccionLuz) return false;
+
+        RaycastHit hit;
+        if (Physics.Raycast(jugador.position + Vector3.up * 1.5f, dir, out hit, 20f))
+            if (hit.transform == transform || hit.transform.IsChildOf(transform))
+                return true;
+
+        return false;
     }
 }

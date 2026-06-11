@@ -1,32 +1,95 @@
-﻿// ── InteractionSystem.cs (va en el jugador) ─────────────
-using UnityEngine;
+﻿using UnityEngine;
+using UnityEngine.InputSystem;
 
 public class InteractionSystem : MonoBehaviour
 {
-    public float rangoInteraccion = 2.5f;
-    public LayerMask capaInteractuable; // Crea un Layer llamado "Interactuable"
+    public float rangoInteraccion = 3f;
+    public LayerMask capaInteractuable;
+
+    [Header("UI")]
+    public GameObject textoInteraccion;
+
+    private OutlineEffect outlineActual = null;
 
     void Update()
     {
-        if (Input.GetKeyDown(KeyCode.E))
+        // Nuevo Input System
+        if (Keyboard.current.eKey.wasPressedThisFrame)
+        {
+            Debug.Log("E presionado");
             IntentarInteractuar();
+        }
+
+        ActualizarOutline();
+    }
+
+    void ActualizarOutline()
+    {
+        Collider[] cercanos = Physics.OverlapSphere(
+            transform.position, rangoInteraccion, capaInteractuable);
+
+        OutlineEffect outlineMasCercano = null;
+        float menorDist = float.MaxValue;
+
+        foreach (Collider col in cercanos)
+        {
+            // Ignorar colliders del propio jugador
+            if (col.transform.IsChildOf(transform) || col.transform == transform) continue;
+
+            float dist = Vector3.Distance(transform.position, col.transform.position);
+            if (dist < menorDist)
+            {
+                OutlineEffect oe = col.GetComponentInParent<OutlineEffect>();
+                if (oe != null)
+                {
+                    menorDist = dist;
+                    outlineMasCercano = oe;
+                }
+            }
+        }
+
+        if (outlineMasCercano != outlineActual)
+        {
+            if (outlineActual != null) outlineActual.OcultarOutline();
+            outlineActual = outlineMasCercano;
+            if (outlineActual != null) outlineActual.MostrarOutline();
+        }
+
+        if (textoInteraccion != null)
+            textoInteraccion.SetActive(outlineMasCercano != null);
     }
 
     void IntentarInteractuar()
     {
-        // Raycast desde el centro de la cámara hacia adelante
-        Ray rayo = Camera.main.ScreenPointToRay(new Vector3(Screen.width / 2, Screen.height / 2));
-        RaycastHit golpe;
+        Collider[] cercanos = Physics.OverlapSphere(
+            transform.position, rangoInteraccion, capaInteractuable);
 
-        if (Physics.Raycast(rayo, out golpe, rangoInteraccion, capaInteractuable))
+        if (cercanos.Length == 0) return;
+
+        Collider masCercano = null;
+        float menorDist = float.MaxValue;
+
+        foreach (Collider col in cercanos)
         {
-            // Intentar recoger item
-            ItemPickup item = golpe.collider.GetComponent<ItemPickup>();
-            if (item != null) { item.Recoger(); return; }
+            // Ignorar colliders del propio jugador
+            if (col.transform.IsChildOf(transform) || col.transform == transform) continue;
 
-            // Intentar abrir puerta
-            DoorController puerta = golpe.collider.GetComponent<DoorController>();
-            if (puerta != null) { puerta.IntentarAbrir(); return; }
+            float dist = Vector3.Distance(transform.position, col.transform.position);
+            if (dist < menorDist)
+            {
+                menorDist = dist;
+                masCercano = col;
+            }
         }
+
+        if (masCercano == null) return;
+
+        Debug.Log("Interactuando con: " + masCercano.gameObject.name);
+
+        ItemPickup item = masCercano.GetComponentInParent<ItemPickup>();
+        if (item != null) { item.Recoger(); return; }
+
+        DoorController puerta = masCercano.GetComponentInParent<DoorController>();
+        if (puerta != null) { puerta.IntentarAbrir(); return; }
     }
 }
