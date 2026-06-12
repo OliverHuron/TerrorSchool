@@ -1,0 +1,7 @@
+newmtl Table
+map_Kd wood_table_001_diff_4k.jpg
+bump wood_table_001_nor_gl_4k.exr
+disp wood_table_001_disp_4k.png
+Kd 1 1 1
+d 1
+

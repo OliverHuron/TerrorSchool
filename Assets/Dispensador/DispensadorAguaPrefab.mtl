@@ -1,0 +1,8 @@
+newmtl BaseColor
+Kd 1 1 1
+d 1
+
+newmtl GarrafonColor
+Kd 0.737255 1 1
+d 0.4313726
+

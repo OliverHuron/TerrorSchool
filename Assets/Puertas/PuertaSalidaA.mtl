@@ -1,0 +1,5 @@
+newmtl FondoNegro
+map_Kd FndoNegro.png
+Kd 1 1 1
+d 1
+
