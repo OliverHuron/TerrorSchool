@@ -40,4 +40,17 @@ public class MouseLook : MonoBehaviour
         if (playerBody != null)
             playerBody.Rotate(Vector3.up * mouseX);
     }
+    public void EntrarModoPanel()
+    {
+        Cursor.lockState = CursorLockMode.None;
+        Cursor.visible = true;
+        enabled = false; // Desactiva la rotación de cámara
+    }
+
+    public void SalirModoPanel()
+    {
+        Cursor.lockState = CursorLockMode.Locked;
+        Cursor.visible = false;
+        enabled = true;
+    }
 }

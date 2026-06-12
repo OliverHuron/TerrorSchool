@@ -65,23 +65,35 @@ public class InteractionSystem : MonoBehaviour
     {
         if (GameState.UIAbierta) return;
 
-        // 1. BUSCAR PUERTAS Y COMPROBAR SI ESTÁN CERRADAS
         Collider[] cercanos = Physics.OverlapSphere(transform.position, rangoInteraccion, capaInteractuable);
         foreach (Collider col in cercanos)
         {
+
+            // Puertas
             DoorController puerta = col.GetComponentInParent<DoorController>();
             if (puerta != null)
             {
-                // Si la puerta existe y ESTÁ CERRADA, intentamos abrirla y salimos
-                if (!puerta.EstaAbierta())
+                // Verificar también BisagraDoor
+                BisagraDoor bisagra = col.GetComponentInParent<BisagraDoor>();
+                bool yaAbierta = puerta.EstaAbierta() || (bisagra != null && bisagra.EstaAbierta());
+
+                if (!yaAbierta)
                 {
                     puerta.IntentarAbrir();
-                    return; // AQUÍ ES DONDE SE CORTA EL CÓDIGO. No busca llaves si la puerta sigue cerrada.
+                    return;
                 }
+            }
+
+            // Teclas del panel
+            Tecla tecla = col.GetComponentInParent<Tecla>();
+            if (tecla != null)
+            {
+                tecla.Presionar();
+                return;
             }
         }
 
-        // 2. SI NO HUBO PUERTAS CERRADAS, BUSCAMOS LA LLAVE
+        // Items
         ItemPickup[] todosLosItems = FindObjectsByType<ItemPickup>(FindObjectsSortMode.None);
         foreach (ItemPickup item in todosLosItems)
         {

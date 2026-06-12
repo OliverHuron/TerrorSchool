@@ -128,4 +128,8 @@ public class DoorController : MonoBehaviour
         Debug.Log("¡Escapaste! — aquí cargas escena de victoria");
         // UnityEngine.SceneManagement.SceneManager.LoadScene("Victoria");
     }
+    public void MarcarAbierta()
+    {
+        abierta = true;
+    }
 }
