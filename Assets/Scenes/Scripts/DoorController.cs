@@ -94,7 +94,27 @@ public class DoorController : MonoBehaviour
     void Abrir()
     {
         abierta = true;
-        StartCoroutine(AnimarApertura());
+
+        // Usar BisagraDoor si existe para animación suave
+        BisagraDoor bisagra = GetComponent<BisagraDoor>();
+        if (bisagra != null)
+        {
+            bisagra.Abrir();
+            if (esPuertaEscape)
+                StartCoroutine(MostrarWinDespues(1.2f)); // esperar que termine la animación
+        }
+        else
+        {
+            StartCoroutine(AnimarApertura());
+            if (esPuertaEscape)
+                StartCoroutine(MostrarWinDespues(1.2f));
+        }
+    }
+
+    IEnumerator MostrarWinDespues(float espera)
+    {
+        yield return new WaitForSeconds(espera);
+        MostrarWin();
     }
 
     IEnumerator AnimarApertura()
@@ -131,5 +151,30 @@ public class DoorController : MonoBehaviour
     public void MarcarAbierta()
     {
         abierta = true;
+    }
+    void MostrarWin()
+    {
+        GameObject canvasObj = new GameObject("CanvasWin");
+        Canvas canvas = canvasObj.AddComponent<Canvas>();
+        canvas.renderMode = RenderMode.ScreenSpaceOverlay;
+        canvasObj.AddComponent<UnityEngine.UI.CanvasScaler>();
+        canvasObj.AddComponent<UnityEngine.UI.GraphicRaycaster>();
+
+        GameObject textoObj = new GameObject("TextoWin");
+        textoObj.transform.SetParent(canvasObj.transform, false);
+
+        TMPro.TextMeshProUGUI texto = textoObj.AddComponent<TMPro.TextMeshProUGUI>();
+        texto.text = "WIN";
+        texto.fontSize = 120;
+        texto.alignment = TMPro.TextAlignmentOptions.Center;
+        texto.color = Color.yellow;
+
+        RectTransform rect = textoObj.GetComponent<RectTransform>();
+        rect.anchorMin = Vector2.zero;
+        rect.anchorMax = Vector2.one;
+        rect.offsetMin = Vector2.zero;
+        rect.offsetMax = Vector2.zero;
+
+        Time.timeScale = 0f;
     }
 }
