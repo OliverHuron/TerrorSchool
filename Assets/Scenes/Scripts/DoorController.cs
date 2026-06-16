@@ -19,6 +19,14 @@ public class DoorController : MonoBehaviour
     public GameObject panelCodigo;
     public TMP_InputField campoCodigo;
 
+    [Header("Sonido")]
+    public AudioClip sonidoBloqueada;
+    public AudioClip sonidoAbrir;
+    public AudioSource audioSource;
+
+    [Header("Animación")]
+    public float duracionApertura = 3f;
+
     private bool abierta = false;
     private PlayerInventory inventario;
     // Añade esto en tu DoorController.cs
@@ -31,6 +39,8 @@ public class DoorController : MonoBehaviour
     {
         inventario = FindObjectOfType<PlayerInventory>();
         if (panelCodigo) panelCodigo.SetActive(false);
+        if (audioSource == null)
+            audioSource = GetComponent<AudioSource>();
     }
 
     public void IntentarAbrir()
@@ -45,7 +55,11 @@ public class DoorController : MonoBehaviour
                     inventario.UsarLlave(idLlaveNecesaria);
                     Abrir();
                 }
-                else Debug.Log("Necesitas la llave: " + idLlaveNecesaria);
+                else
+                {
+                    ReproducirSonido(sonidoBloqueada);
+                    Debug.Log("Necesitas la llave: " + idLlaveNecesaria);
+                }
                 break;
 
             case TipoPuerta.RequiereCodigo:
@@ -56,7 +70,11 @@ public class DoorController : MonoBehaviour
             case TipoPuerta.LlaveDorada:
                 if (inventario.TieneLlave("llave_dorada"))
                     EscaparJuego();
-                else Debug.Log("Necesitas la llave dorada");
+                else
+                {
+                    ReproducirSonido(sonidoBloqueada);
+                    Debug.Log("Necesitas la llave dorada");
+                }
                 break;
         }
     }
@@ -94,6 +112,7 @@ public class DoorController : MonoBehaviour
     void Abrir()
     {
         abierta = true;
+        ReproducirSonido(sonidoAbrir);
 
         // Usar BisagraDoor si existe para animación suave
         BisagraDoor bisagra = GetComponent<BisagraDoor>();
@@ -101,13 +120,13 @@ public class DoorController : MonoBehaviour
         {
             bisagra.Abrir();
             if (esPuertaEscape)
-                StartCoroutine(MostrarWinDespues(1.2f)); // esperar que termine la animación
+                StartCoroutine(MostrarWinDespues(bisagra.duracionApertura));
         }
         else
         {
             StartCoroutine(AnimarApertura());
             if (esPuertaEscape)
-                StartCoroutine(MostrarWinDespues(1.2f));
+                StartCoroutine(MostrarWinDespues(duracionApertura));
         }
     }
 
@@ -119,7 +138,7 @@ public class DoorController : MonoBehaviour
 
     IEnumerator AnimarApertura()
     {
-        float duracion = 1f; // segundos que tarda en abrirse
+        float duracion = duracionApertura;
         float tiempo = 0f;
         Quaternion rotacionInicial = transform.rotation;
         Quaternion rotacionFinal = rotacionInicial * Quaternion.Euler(0, 90, 0);
@@ -151,6 +170,15 @@ public class DoorController : MonoBehaviour
     public void MarcarAbierta()
     {
         abierta = true;
+    }
+
+    void ReproducirSonido(AudioClip clip)
+    {
+        if (clip == null) return;
+        if (audioSource != null)
+            audioSource.PlayOneShot(clip);
+        else
+            AudioSource.PlayClipAtPoint(clip, transform.position);
     }
     void MostrarWin()
     {

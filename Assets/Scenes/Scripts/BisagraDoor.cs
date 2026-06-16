@@ -4,7 +4,7 @@ using System.Collections;
 public class BisagraDoor : MonoBehaviour
 {
     public float anguloApertura = 90f;
-    public float velocidad = 2f;
+    public float duracionApertura = 3f;
     private bool abierta = false;
 
     public void Abrir()
@@ -16,7 +16,7 @@ public class BisagraDoor : MonoBehaviour
     IEnumerator AnimarApertura()
     {
         abierta = true;
-        float duracion = 1f;
+        float duracion = duracionApertura;
         float tiempo = 0f;
         Quaternion rotacionInicial = transform.rotation;
         Quaternion rotacionFinal = rotacionInicial * Quaternion.Euler(0, anguloApertura, 0);

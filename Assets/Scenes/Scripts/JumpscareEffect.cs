@@ -5,7 +5,7 @@ using System.Collections;
 
 public class JumpscareEffect : MonoBehaviour
 {
-    [Header("Im·genes")]
+    [Header("Imùgenes")]
     public Image imagenSadako;
     public Image imagenManos;
 
@@ -15,6 +15,10 @@ public class JumpscareEffect : MonoBehaviour
     [Header("Tiempos")]
     public float duracionVisible = 0.8f;
     public float velocidadFade = 3f;
+
+    [Header("Sonido")]
+    public AudioClip sonidoJumpscare;
+    public AudioSource audioSource;
 
     private bool activo = false;
 
@@ -26,7 +30,7 @@ public class JumpscareEffect : MonoBehaviour
 
     IEnumerator SecuenciaMuerte()
     {
-        // 4 ó Mostrar "Has Muerto"
+        // 4 ù Mostrar "Has Muerto"
         if (textoMuerto != null)
         {
             Debug.Log("Activando texto Has Muerto");
@@ -37,16 +41,26 @@ public class JumpscareEffect : MonoBehaviour
         }
         activo = true;
 
-        // 1 ó Mostrar Sadako instant·neo
+        // 1 ù Mostrar Sadako instantùneo
         imagenSadako.gameObject.SetActive(true);
         SetAlpha(imagenSadako, 1f);
 
+        if (sonidoJumpscare != null)
+        {
+            if (audioSource == null)
+                audioSource = GetComponent<AudioSource>();
+            if (audioSource != null)
+                audioSource.PlayOneShot(sonidoJumpscare);
+            else
+                AudioSource.PlayClipAtPoint(sonidoJumpscare, Camera.main.transform.position);
+        }
+
         yield return new WaitForSeconds(duracionVisible);
 
-        // 2 ó Fade out Sadako
+        // 2 ù Fade out Sadako
         yield return StartCoroutine(FadeOut(imagenSadako));
 
-        // 3 ó Mostrar manos ensangrentadas
+        // 3 ù Mostrar manos ensangrentadas
         if (imagenManos != null)
         {
             imagenManos.gameObject.SetActive(true);
@@ -54,7 +68,7 @@ public class JumpscareEffect : MonoBehaviour
             yield return StartCoroutine(FadeIn(imagenManos, 1f));
         }
 
-        // 4 ó Mostrar "Has Muerto"
+        // 4 ù Mostrar "Has Muerto"
         if (textoMuerto != null)
         {
             textoMuerto.gameObject.SetActive(true);
@@ -62,7 +76,7 @@ public class JumpscareEffect : MonoBehaviour
             yield return StartCoroutine(FadeInTexto(textoMuerto, 1.5f));
         }
 
-        // 5 ó Pausar el juego
+        // 5 ù Pausar el juego
         yield return new WaitForSeconds(0.5f);
         Time.timeScale = 0f;
     }
