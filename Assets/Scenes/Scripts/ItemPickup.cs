@@ -1,6 +1,5 @@
 ﻿using UnityEngine;
 using TMPro;
-using UnityEngine.InputSystem;
 
 public class ItemPickup : MonoBehaviour
 {
@@ -16,14 +15,13 @@ public class ItemPickup : MonoBehaviour
     public GameObject panelNota;
     public TextMeshProUGUI textoUI;
 
-    private FlashlightController linterna;
-    private PlayerInventory inventario;
+    PlayerInventory inventario;
 
     void Start()
     {
-        linterna = FindObjectOfType<FlashlightController>();
         inventario = FindObjectOfType<PlayerInventory>();
-        if (panelNota) panelNota.SetActive(false);
+        if (panelNota)
+            panelNota.SetActive(false);
     }
 
     public void Recoger()
@@ -31,11 +29,12 @@ public class ItemPickup : MonoBehaviour
         switch (tipo)
         {
             case TipoItem.Bateria:
-                linterna.AddBattery(recargaBateria);
+                RecargarBaterias();
                 Destroy(gameObject);
                 break;
             case TipoItem.Llave:
-                inventario.AgregarLlave(idLlave);
+                if (inventario != null)
+                    inventario.AgregarLlave(idLlave);
                 Destroy(gameObject);
                 break;
             case TipoItem.Papel:
@@ -47,9 +46,22 @@ public class ItemPickup : MonoBehaviour
         }
     }
 
+    void RecargarBaterias()
+    {
+        FlashlightController linterna = FindObjectOfType<FlashlightController>();
+        if (linterna != null)
+            linterna.AddBattery(recargaBateria);
+
+        CamcorderController camara = FindObjectOfType<CamcorderController>();
+        if (camara != null)
+            camara.AddBattery(recargaBateria);
+    }
+
     void MostrarNota()
     {
-        if (panelNota == null) return;
+        if (panelNota == null)
+            return;
+
         textoUI.text = textoPapel;
         panelNota.SetActive(true);
     }

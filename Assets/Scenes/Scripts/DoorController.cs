@@ -1,8 +1,8 @@
 ﻿using UnityEngine;
 using TMPro;
-using UnityEngine;
-using TMPro;
 using System.Collections;
+
+[RequireComponent(typeof(PuertaNavMesh))]
 public class DoorController : MonoBehaviour
 {
     public enum TipoPuerta { RequiereLlave, RequiereCodigo, CajaFuerte, LlaveDorada }
@@ -114,6 +114,10 @@ public class DoorController : MonoBehaviour
         abierta = true;
         ReproducirSonido(sonidoAbrir);
 
+        PuertaNavMesh navPuerta = GetComponent<PuertaNavMesh>();
+        if (navPuerta != null)
+            navPuerta.NotificarApertura();
+
         // Usar BisagraDoor si existe para animación suave
         BisagraDoor bisagra = GetComponent<BisagraDoor>();
         if (bisagra != null)
@@ -170,6 +174,9 @@ public class DoorController : MonoBehaviour
     public void MarcarAbierta()
     {
         abierta = true;
+        PuertaNavMesh navPuerta = GetComponent<PuertaNavMesh>();
+        if (navPuerta != null)
+            navPuerta.NotificarApertura();
     }
 
     void ReproducirSonido(AudioClip clip)

@@ -55,6 +55,7 @@ public class GhostController : MonoBehaviour
     private Transform jugador;
     private Transform camara;
     private FlashlightController linterna;
+    private CamcorderController camcorder;
     private NavMeshAgent agent;
 
     private bool visible = false;
@@ -78,6 +79,7 @@ public class GhostController : MonoBehaviour
         jugador = playerObj.transform;
         camara = Camera.main != null ? Camera.main.transform : jugador;
         linterna = FindFirstObjectByType<FlashlightController>();
+        camcorder = FindFirstObjectByType<CamcorderController>();
         agent = GetComponent<NavMeshAgent>();
 
         if (audioSource == null)
@@ -162,7 +164,7 @@ public class GhostController : MonoBehaviour
 
     void Update()
     {
-        if (!visible || jugador == null || linterna == null) return;
+        if (!visible || jugador == null) return;
 
         if (modo == ModoComportamiento.AparicionFija)
             transform.position = posicionFija;
@@ -260,8 +262,8 @@ public class GhostController : MonoBehaviour
 
         if (visible)
         {
-            bool linternaApagada = !linterna.IsLightOn();
-            yield return StartCoroutine(Desaparecer(linternaApagada));
+            bool luzApagada = !LuzJugadorEncendida();
+            yield return StartCoroutine(Desaparecer(luzApagada));
         }
     }
 
@@ -407,9 +409,17 @@ public class GhostController : MonoBehaviour
             r.enabled = estado;
     }
 
+    bool LuzJugadorEncendida()
+    {
+        if (linterna != null && linterna.IsLightOn())
+            return true;
+
+        return camcorder != null && camcorder.EstaEncendida();
+    }
+
     bool EstaIluminada()
     {
-        if (linterna == null || !linterna.IsLightOn() || !visible) return false;
+        if (!LuzJugadorEncendida() || !visible) return false;
 
         foreach (Vector3 punto in ObtenerPuntosDeteccion())
         {
@@ -490,21 +500,21 @@ public class GhostController : MonoBehaviour
 
     Vector3 ObtenerOrigenLuz()
     {
-        if (linterna.flashlight != null)
+        if (linterna != null && linterna.flashlight != null)
             return linterna.flashlight.transform.position;
         return camara.position;
     }
 
     Vector3 ObtenerDireccionLuz()
     {
-        if (linterna.flashlight != null)
+        if (linterna != null && linterna.flashlight != null)
             return linterna.flashlight.transform.forward;
         return camara.forward;
     }
 
     float ObtenerAnguloLuz()
     {
-        if (linterna.flashlight != null && linterna.flashlight.type == LightType.Spot)
+        if (linterna != null && linterna.flashlight != null && linterna.flashlight.type == LightType.Spot)
             return linterna.flashlight.spotAngle * 0.5f;
         return anguloDeteccionLuz;
     }

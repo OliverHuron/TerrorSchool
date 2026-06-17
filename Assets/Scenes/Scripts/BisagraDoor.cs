@@ -10,7 +10,12 @@ public class BisagraDoor : MonoBehaviour
     public void Abrir()
     {
         if (!abierta)
+        {
+            PuertaNavMesh navPuerta = GetComponent<PuertaNavMesh>();
+            if (navPuerta != null)
+                navPuerta.NotificarApertura();
             StartCoroutine(AnimarApertura());
+        }
     }
 
     IEnumerator AnimarApertura()
