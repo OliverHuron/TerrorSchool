@@ -46,26 +46,57 @@ public static class MutantRestorer
 
         monster.modeloVisual = modelo.transform;
         monster.animator = modelo.GetComponentInChildren<Animator>();
-        monster.animRetirada = "walkback";
-        monster.mirarAlJugadorAlHuir = true;
 
         JumpscareEffect jumpscare = Object.FindFirstObjectByType<JumpscareEffect>();
         if (jumpscare != null)
             monster.jumpscare = jumpscare;
 
-        GameObject player = GameObject.FindGameObjectWithTag("Player");
-        if (player != null)
-        {
-            Vector3 spawn = player.transform.position - player.transform.forward * 14f;
-            if (NavMesh.SamplePosition(spawn, out NavMeshHit hit, 18f, NavMesh.AllAreas))
-                wrapper.transform.position = hit.position;
-        }
+        Transform[] puntosSpawn = BuscarOCrearPuntos("MutantSpawn", "Spawn_Mutant");
+        Transform[] puntosRuta = BuscarOCrearPuntos("MutantRuta", "Ruta_");
+        monster.puntosSpawn = puntosSpawn;
+        monster.puntosRuta = puntosRuta;
+
+        if (puntosSpawn.Length > 0)
+            wrapper.transform.position = puntosSpawn[0].position;
+        else if (NavMesh.SamplePosition(Vector3.zero, out NavMeshHit hit, 50f, NavMesh.AllAreas))
+            wrapper.transform.position = hit.position;
 
         Selection.activeGameObject = wrapper;
         EditorUtility.DisplayDialog(
             "Mutant 7 restaurado",
-            "Se creo MutantWrapper con walkback, rage, ataques y NavMesh.\n\nPulsa Play y espera ~5 segundos.",
+            "Se creo MutantWrapper con patrulla, deteccion directa y NavMesh.\n\n" +
+            "Asigna Puntos Spawn y Puntos Ruta (empties) si aun no existen.\n\nPulsa Play y espera ~5 segundos.",
             "OK");
+    }
+
+    static Transform[] BuscarOCrearPuntos(string contenedorNombre, string prefijoHijo)
+    {
+        GameObject contenedor = GameObject.Find(contenedorNombre);
+        if (contenedor == null)
+        {
+            contenedor = new GameObject(contenedorNombre);
+            Undo.RegisterCreatedObjectUndo(contenedor, "Crear puntos mutant");
+        }
+
+        Transform[] existentes = contenedor.GetComponentsInChildren<Transform>(true);
+        System.Collections.Generic.List<Transform> puntos = new System.Collections.Generic.List<Transform>();
+        foreach (Transform t in existentes)
+        {
+            if (t == contenedor.transform)
+                continue;
+            if (t.name.StartsWith(prefijoHijo))
+                puntos.Add(t);
+        }
+
+        if (puntos.Count == 0)
+        {
+            GameObject punto = new GameObject(prefijoHijo + "01");
+            Undo.RegisterCreatedObjectUndo(punto, "Crear punto mutant");
+            punto.transform.SetParent(contenedor.transform, false);
+            puntos.Add(punto.transform);
+        }
+
+        return puntos.ToArray();
     }
 
     [MenuItem("TerrorSchool/Desactivar zombies")]

@@ -4,34 +4,27 @@ using System.Collections;
 
 public class MonsterController : MonoBehaviour
 {
-    enum Estado { Inactivo, Cazando, Observando, AdvertenciaAtaque, Atacando, Retirandose, GolpeLuz, Rage, SaltoSpawn }
+    enum Estado { Inactivo, Patrullando, Atacando, GolpeLuz }
 
     [Header("Spawn")]
     public float tiempoEsperaInicial = 5f;
     public float cooldownMin = 10f;
     public float cooldownMax = 20f;
-    public float distanciaMinSpawn = 10f;
-    public float distanciaMaxSpawn = 20f;
-    [Tooltip("Opcional: crea Empty objects en el suelo permitido y arrástralos aquí.")]
+    [Tooltip("Obligatorio: Empty objects donde puede aparecer el mutante.")]
     public Transform[] puntosSpawn;
-    [Tooltip("No spawnea en plantas mucho más altas/bajas que el jugador.")]
-    public float diferenciaAlturaMax = 2f;
 
-    [Header("Cacería")]
+    [Header("Ruta de patrulla")]
+    [Tooltip("Empty objects por los que patrulla aleatoriamente.")]
+    public Transform[] puntosRuta;
+    public float distanciaLlegadaRuta = 1.2f;
+
+    [Header("Detección")]
+    public float distanciaDeteccion = 12f;
+    public bool requiereLineaVista = true;
+
+    [Header("Movimiento")]
     public float velocidadCaminar = 2.5f;
     public float velocidadCorrer = 5.5f;
-    public float velocidadRetirada = 2.8f;
-    public float distanciaObservacion = 10f;
-    public float distanciaAdvertencia = 12f;
-    public float distanciaAtaque = 3.5f;
-    public float tiempoAntesAtaque = 2f;
-    public float intervaloActualizarDestino = 0.3f;
-    public float intervaloAtaqueAdvertencia = 7f;
-
-    [Header("Linterna — retirada")]
-    public float tiempoLuzParaRetroceder = 0.3f;
-    public float duracionGolpeLuz = 0.5f;
-    public string animRetirada = "walkback";
 
     [Header("Modelo")]
     public Transform modeloVisual;
@@ -40,13 +33,10 @@ public class MonsterController : MonoBehaviour
     public Vector3 escalaModelo = Vector3.one;
     public bool alinearPiesAlSuelo = true;
 
-    [Header("Animación — pools")]
-    [Tooltip("Opcional si Modelo Visual está asignado: se busca solo al iniciar.")]
+    [Header("Animación")]
     public Animator animator;
-    public string[] idles = { "idle1", "idle2", "idle3", "idle4" };
     public string[] caminatas = { "walk1", "walk2", "walk3", "walk4" };
     public string[] carreras = { "run1", "run2", "run3" };
-    public string[] huidas = { "walkback", "run2", "run3" };
     public string[] ataques =
     {
         "attack1", "attack2", "attack3", "attack4", "attack5",
@@ -54,68 +44,45 @@ public class MonsterController : MonoBehaviour
         "attack3RSpike", "attack4RSpike", "attack5LSpike"
     };
     public string[] golpesLuz = { "gethit1", "gethit2", "gethit3", "gethit4" };
-    public string animRage = "rage";
-    public string animSaltoSpawn = "jump";
-
-    [Header("Animación — tiempos")]
-    public float intervaloCambioIdle = 2.2f;
     public float intervaloCambioWalk = 3.5f;
-    public float duracionRage = 1.1f;
-    public float duracionAtaqueAdvertencia = 1.6f;
-    public float duracionAnimAtaque = 0.35f;
-    public float probabilidadSaltoSpawn = 0.25f;
-    public bool usarStrafeAlObservar = true;
-    public bool mirarAlJugadorAlHuir = true;
 
     [Header("Jumpscare / Muerte")]
     public JumpscareEffect jumpscare;
-    [Tooltip("Distancia al jugador donde se detiene (frente a ti, no encima).")]
     public float distanciaMuerte = 2.5f;
-    [Tooltip("Segundos de golpe antes del video de muerte.")]
     public float tiempoGolpeAntesMuerte = 0.15f;
 
     [Header("Luz")]
+    public float tiempoLuzParaInterrumpir = 0.3f;
+    public float duracionGolpeLuz = 0.5f;
     public float anguloDeteccionLuz = 60f;
     public float distanciaMaxLuz = 25f;
     public float margenAnguloLuz = 10f;
 
     [Header("Sonido")]
     public AudioClip sonidoAparicion;
-    public AudioClip sonidoObservacion;
     public AudioSource audioSource;
     public bool sonidoAparicionGlobal = true;
-    public bool sonidoObservacionGlobal = true;
-    public float intervaloRugido = 3f;
     [Range(0f, 1f)] public float volumenAparicion = 1f;
-    [Range(0f, 1f)] public float volumenObservacion = 1f;
 
-    private Estado estado = Estado.Inactivo;
-    private Transform jugador;
-    private Transform camara;
-    private FlashlightController linterna;
-    private CamcorderController camcorder;
-    private NavMeshAgent agent;
+    Estado estado = Estado.Inactivo;
+    Transform jugador;
+    Transform camara;
+    PlayerMovement movimientoJugador;
+    FlashlightController linterna;
+    CamcorderController camcorder;
+    NavMeshAgent agent;
 
-    private float tiempoIluminado = 0f;
-    private float timerDestino = 0f;
-    private float timerObservacion = 0f;
-    private float timerAnimAtaque = 0f;
-    private float timerAdvertencia = 0f;
-    private float timerEntreAdvertencias = 0f;
-    private float timerCambioIdle = 0f;
-    private float timerCambioWalk = 0f;
-    private float timerRage = 0f;
-    private float timerGolpeLuz = 0f;
-    private float timerSaltoSpawn = 0f;
-    private float timerRugido = 0f;
-    private bool ataqueAnimIniciado = false;
-    private bool advertenciaEnCurso = false;
-    private bool muerteIniciada = false;
-    private string animActual = "";
-    private string ataqueElegido = "";
-    private string golpeLuzElegido = "";
-    private string locomotionActual = "";
-    private Vector3 ultimaPosicionSpawn;
+    float tiempoIluminado;
+    float timerCambioWalk;
+    float timerGolpeLuz;
+    float timerAnimAtaque;
+    bool ataqueAnimIniciado;
+    bool muerteIniciada;
+    string animActual = "";
+    string ataqueElegido = "";
+    string golpeLuzElegido = "";
+    string locomotionActual = "";
+    Transform puntoRutaActual;
 
     void Start()
     {
@@ -128,6 +95,7 @@ public class MonsterController : MonoBehaviour
         }
 
         jugador = playerObj.transform;
+        movimientoJugador = playerObj.GetComponent<PlayerMovement>();
         camara = Camera.main != null ? Camera.main.transform : jugador;
         linterna = FindFirstObjectByType<FlashlightController>();
         camcorder = FindFirstObjectByType<CamcorderController>();
@@ -166,7 +134,8 @@ public class MonsterController : MonoBehaviour
 
     void ConfigurarAgente()
     {
-        if (agent == null) return;
+        if (agent == null)
+            return;
 
         agent.acceleration = 10f;
         agent.angularSpeed = 0f;
@@ -177,7 +146,9 @@ public class MonsterController : MonoBehaviour
 
     void OnValidate()
     {
-        if (modeloVisual == null) return;
+        if (modeloVisual == null)
+            return;
+
         modeloVisual.localRotation = Quaternion.Euler(rotacionModelo);
         modeloVisual.localScale = escalaModelo;
         modeloVisual.localPosition = posicionModelo;
@@ -189,7 +160,8 @@ public class MonsterController : MonoBehaviour
     void AplicarTransformModelo()
     {
         OnValidate();
-        if (!alinearPiesAlSuelo || !Application.isPlaying || modeloVisual == null) return;
+        if (!alinearPiesAlSuelo || !Application.isPlaying || modeloVisual == null)
+            return;
 
         float offsetY = CalcularOffsetPiesLocal();
         Vector3 pos = posicionModelo;
@@ -200,7 +172,8 @@ public class MonsterController : MonoBehaviour
     float CalcularOffsetPiesLocal()
     {
         Renderer[] renderers = modeloVisual.GetComponentsInChildren<Renderer>();
-        if (renderers.Length == 0) return 0f;
+        if (renderers.Length == 0)
+            return 0f;
 
         float minY = float.MaxValue;
         foreach (Renderer r in renderers)
@@ -220,7 +193,8 @@ public class MonsterController : MonoBehaviour
             foreach (Vector3 corner in corners)
             {
                 float localY = transform.InverseTransformPoint(corner).y;
-                if (localY < minY) minY = localY;
+                if (localY < minY)
+                    minY = localY;
             }
         }
 
@@ -229,279 +203,82 @@ public class MonsterController : MonoBehaviour
 
     void Update()
     {
-        if (estado == Estado.Inactivo || jugador == null) return;
+        if (estado == Estado.Inactivo || jugador == null)
+            return;
 
         ActualizarRotacion();
-        ActualizarLuz();
 
         switch (estado)
         {
-            case Estado.SaltoSpawn: ActualizarSaltoSpawn(); break;
-            case Estado.Cazando: ActualizarCazando(); break;
-            case Estado.Observando: ActualizarObservando(); break;
-            case Estado.Rage: ActualizarRage(); break;
-            case Estado.AdvertenciaAtaque: ActualizarAdvertenciaAtaque(); break;
-            case Estado.Atacando: ActualizarAtacando(); break;
-            case Estado.GolpeLuz: ActualizarGolpeLuz(); break;
-            case Estado.Retirandose: ActualizarRetirada(); break;
+            case Estado.Patrullando:
+                ActualizarPatrulla();
+                break;
+            case Estado.Atacando:
+                ActualizarAtaque();
+                break;
+            case Estado.GolpeLuz:
+                ActualizarGolpeLuz();
+                break;
         }
     }
 
-    void ActualizarSaltoSpawn()
+    void ActualizarPatrulla()
     {
-        agent.isStopped = true;
-        timerSaltoSpawn += Time.deltaTime;
-        if (timerSaltoSpawn >= 1.1f)
-            ReanudarCaceriaTrasSpawn();
-    }
-
-    void ActualizarRage()
-    {
-        agent.isStopped = true;
-        timerRage += Time.deltaTime;
-        ReproducirAnim(animRage);
-
-        if (timerRage >= duracionRage)
+        if (JugadorDetectable())
         {
-            estado = Estado.Atacando;
-            timerAnimAtaque = 0f;
-            ataqueAnimIniciado = false;
-            agent.isStopped = false;
-            agent.speed = velocidadCorrer;
-            AplicarParadaMuerte();
-            agent.SetDestination(ObtenerPuntoFrenteJugador(distanciaMuerte));
-        }
-    }
-
-    void ActualizarGolpeLuz()
-    {
-        agent.isStopped = true;
-        timerGolpeLuz += Time.deltaTime;
-        MantenerAnimLoop(golpeLuzElegido);
-        if (timerGolpeLuz >= duracionGolpeLuz)
-            IniciarRetirada();
-    }
-
-    void ActualizarLuz()
-    {
-        bool iluminado = EstaIluminada();
-
-        if (!iluminado)
-        {
-            tiempoIluminado = 0f;
+            IniciarAtaque();
             return;
         }
 
-        tiempoIluminado += Time.deltaTime;
-
-        if (tiempoIluminado < tiempoLuzParaRetroceder) return;
-
-        if (estado == Estado.Retirandose || estado == Estado.GolpeLuz || estado == Estado.Inactivo)
+        if (agent == null || !agent.enabled)
             return;
-
-        if (golpesLuz != null && golpesLuz.Length > 0)
-            IniciarGolpeLuz();
-        else
-            IniciarRetirada();
-    }
-
-    bool LinternaApagada()
-    {
-        if (linterna != null && linterna.IsLightOn())
-            return false;
-
-        if (camcorder != null && camcorder.EstaEncendida())
-            return false;
-
-        return true;
-    }
-
-    float VelocidadAcercamiento()
-    {
-        if (LinternaApagada())
-            return velocidadCorrer * 0.85f;
-        return velocidadCaminar;
-    }
-
-    void ActualizarCazando()
-    {
-        if (EstaIluminada())
-            return;
-
-        timerDestino += Time.deltaTime;
-        if (timerDestino >= intervaloActualizarDestino)
-        {
-            timerDestino = 0f;
-            agent.SetDestination(jugador.position);
-        }
 
         agent.isStopped = false;
-        agent.speed = VelocidadAcercamiento();
-        timerCambioWalk += Time.deltaTime;
-        timerEntreAdvertencias += Time.deltaTime;
+        agent.speed = velocidadCaminar;
 
-        if (LinternaApagada())
-        {
-            if (string.IsNullOrEmpty(locomotionActual) || !EsAnimDePool(locomotionActual, carreras))
-                EstablecerLocomotion(ElegirAleatoria(carreras, carreras[0]));
-            else
-                MantenerAnimLoop(locomotionActual);
-        }
-        else if (timerCambioWalk >= intervaloCambioWalk)
+        if (puntoRutaActual == null || LlegoAPuntoRuta())
+            ElegirNuevoPuntoRuta();
+
+        timerCambioWalk += Time.deltaTime;
+        if (timerCambioWalk >= intervaloCambioWalk)
         {
             timerCambioWalk = 0f;
             EstablecerLocomotion(ElegirAleatoria(caminatas));
         }
-        else if (string.IsNullOrEmpty(locomotionActual) || EsAnimDePool(locomotionActual, carreras))
+        else if (string.IsNullOrEmpty(locomotionActual))
+        {
             EstablecerLocomotion(ElegirAleatoria(caminatas, caminatas[0]));
+        }
         else
+        {
             MantenerAnimLoop(locomotionActual);
+        }
 
-        SincronizarVelocidadAnim(agent.velocity.magnitude, LinternaApagada() ? velocidadCorrer : velocidadCaminar);
-
-        float dist = DistanciaHorizontal(transform.position, jugador.position);
-
-        if (dist <= distanciaAdvertencia)
-            ActualizarRugido();
-
-        if (LinternaApagada() && dist <= distanciaAdvertencia && timerEntreAdvertencias >= intervaloAtaqueAdvertencia)
-            IniciarAdvertenciaAtaque();
-        else if (dist <= distanciaObservacion)
-            IniciarObservacion();
+        SincronizarVelocidadAnim(agent.velocity.magnitude, velocidadCaminar);
     }
 
-    void ReproducirAnimActualOCambiar(string[] pool, string fallback)
+    void ActualizarAtaque()
     {
-        if (string.IsNullOrEmpty(animActual))
-            ReproducirAnim(ElegirAleatoria(pool, fallback));
-    }
-
-    void ActualizarObservando()
-    {
-        if (EstaIluminada())
-            return;
-
-        agent.isStopped = true;
-        ActualizarRugido();
-
-        timerObservacion -= Time.deltaTime;
-        timerCambioIdle += Time.deltaTime;
-        timerEntreAdvertencias += Time.deltaTime;
-
-        float dist = DistanciaHorizontal(transform.position, jugador.position);
-
-        if (LinternaApagada() && dist <= distanciaAdvertencia && timerEntreAdvertencias >= intervaloAtaqueAdvertencia)
+        if (JugadorEscondido())
         {
-            IniciarAdvertenciaAtaque();
+            VolverAPatrulla();
             return;
         }
-
-        if (usarStrafeAlObservar && TryReproducirStrafe()) { }
-        else if (timerCambioIdle >= intervaloCambioIdle)
-        {
-            timerCambioIdle = 0f;
-            ReproducirAnim(ElegirAleatoria(idles));
-        }
-        else if (timerObservacion <= 1f && LinternaApagada() && !string.IsNullOrEmpty(animRage))
-        {
-            ReproducirAnim(animRage);
-        }
-        else
-        {
-            ReproducirAnimActualOCambiar(idles, idles[0]);
-        }
-
-        if (dist > distanciaObservacion * 1.3f)
-        {
-            ReanudarCaceria();
-            return;
-        }
-
-        if (timerObservacion <= 0f && LinternaApagada())
-            IniciarAtaque();
-    }
-
-    void ActualizarAdvertenciaAtaque()
-    {
-        agent.isStopped = true;
-        timerAdvertencia += Time.deltaTime;
-
-        if (!advertenciaEnCurso)
-        {
-            advertenciaEnCurso = true;
-            ataqueElegido = ElegirAleatoria(ataques, ataques[0]);
-            ReproducirAnim(ataqueElegido);
-        }
-        else
-        {
-            MantenerAnimLoop(ataqueElegido);
-        }
-
-        if (timerAdvertencia >= duracionAtaqueAdvertencia)
-            FinalizarAdvertenciaAtaque();
-    }
-
-    void FinalizarAdvertenciaAtaque()
-    {
-        advertenciaEnCurso = false;
-        timerAdvertencia = 0f;
-        timerEntreAdvertencias = 0f;
 
         if (EstaIluminada())
         {
-            IniciarRetirada();
+            tiempoIluminado += Time.deltaTime;
+            if (tiempoIluminado >= tiempoLuzParaInterrumpir)
+                IniciarGolpeLuz();
             return;
         }
 
-        float dist = DistanciaHorizontal(transform.position, jugador.position);
-        if (LinternaApagada() && dist <= distanciaObservacion * 0.8f)
-            IniciarAtaque();
-        else
-            ReanudarCaceria();
-    }
-
-    void IniciarAdvertenciaAtaque()
-    {
-        estado = Estado.AdvertenciaAtaque;
-        timerAdvertencia = 0f;
-        advertenciaEnCurso = false;
-        agent.isStopped = true;
-        agent.ResetPath();
-    }
-
-    bool TryReproducirStrafe()
-    {
-        Vector3 toPlayer = jugador.position - transform.position;
-        toPlayer.y = 0f;
-        if (toPlayer.sqrMagnitude < 0.01f) return false;
-
-        Vector3 forward = transform.forward;
-        float dotSide = Vector3.Dot(transform.right, toPlayer.normalized);
-
-        if (dotSide > 0.55f)
-        {
-            ReproducirAnim("straferight");
-            return true;
-        }
-
-        if (dotSide < -0.55f)
-        {
-            ReproducirAnim("strafeleft");
-            return true;
-        }
-
-        return false;
-    }
-
-    void ActualizarAtacando()
-    {
-        if (EstaIluminada())
-            return;
+        tiempoIluminado = 0f;
 
         agent.isStopped = false;
         agent.speed = velocidadCorrer;
         AplicarParadaMuerte();
-        agent.SetDestination(ObtenerPuntoFrenteJugador(distanciaMuerte));
+        agent.SetDestination(jugador.position);
 
         string animCarrera = locomotionActual;
         if (string.IsNullOrEmpty(animCarrera) || !EsAnimDePool(animCarrera, carreras))
@@ -515,135 +292,168 @@ public class MonsterController : MonoBehaviour
         float dist = DistanciaHorizontal(transform.position, jugador.position);
         bool enRango = dist <= distanciaMuerte + 0.55f;
 
-        if (enRango)
-        {
-            CorregirDistanciaMuerte();
-            agent.isStopped = true;
-            AlinearFrenteAlJugador();
-
-            if (!ataqueAnimIniciado)
-            {
-                ataqueElegido = ElegirAleatoria(ataques, ataques[0]);
-                ataqueAnimIniciado = true;
-                timerAnimAtaque = 0f;
-                ReproducirAnim(ataqueElegido);
-            }
-            else
-            {
-                MantenerAnimLoop(ataqueElegido);
-            }
-
-            if (timerAnimAtaque >= tiempoGolpeAntesMuerte && !muerteIniciada)
-            {
-                muerteIniciada = true;
-                StartCoroutine(FinalizarAtaque());
-            }
-        }
-    }
-
-    void ActualizarRetirada()
-    {
-        agent.isStopped = true;
-        agent.ResetPath();
-
-        string nombre = string.IsNullOrEmpty(animRetirada) ? "walkback" : animRetirada;
-        EstablecerLocomotion(nombre);
-        MantenerAnimLoop(nombre);
-        SincronizarVelocidadAnim(velocidadRetirada, velocidadRetirada);
-
-        if (!EstaIluminada())
-        {
-            FinalizarRetirada();
+        if (!enRango)
             return;
+
+        CorregirDistanciaMuerte();
+        agent.isStopped = true;
+        AlinearFrenteAlJugador();
+
+        if (!ataqueAnimIniciado)
+        {
+            ataqueElegido = ElegirAleatoria(ataques, ataques[0]);
+            ataqueAnimIniciado = true;
+            timerAnimAtaque = 0f;
+            ReproducirAnim(ataqueElegido);
+        }
+        else
+        {
+            MantenerAnimLoop(ataqueElegido);
         }
 
-        Vector3 retroceso = -transform.forward * velocidadRetirada * Time.deltaTime;
-        if (agent != null && agent.enabled)
-            agent.Move(retroceso);
+        if (timerAnimAtaque >= tiempoGolpeAntesMuerte && !muerteIniciada)
+        {
+            muerteIniciada = true;
+            StartCoroutine(FinalizarAtaque());
+        }
     }
 
-    void FinalizarRetirada()
+    void ActualizarGolpeLuz()
     {
-        tiempoIluminado = 0f;
-        timerObservacion = tiempoAntesAtaque;
-        timerRugido = intervaloRugido;
-        estado = Estado.Observando;
         agent.isStopped = true;
-        ReproducirAnim(ElegirAleatoria(idles));
+        timerGolpeLuz += Time.deltaTime;
+        MantenerAnimLoop(golpeLuzElegido);
+
+        if (timerGolpeLuz >= duracionGolpeLuz)
+            VolverAPatrulla();
     }
 
-    void IniciarObservacion()
+    bool JugadorEscondido()
     {
-        estado = Estado.Observando;
-        timerObservacion = tiempoAntesAtaque;
-        timerCambioIdle = 0f;
-        timerRugido = intervaloRugido;
-        agent.isStopped = true;
-        agent.ResetPath();
-        ReproducirAnim(ElegirAleatoria(idles));
+        return movimientoJugador != null && movimientoJugador.EstaEscondido;
+    }
+
+    bool JugadorDetectable()
+    {
+        if (JugadorEscondido())
+            return false;
+
+        float dist = DistanciaHorizontal(transform.position, jugador.position);
+        if (dist > distanciaDeteccion)
+            return false;
+
+        if (!requiereLineaVista)
+            return true;
+
+        return TieneLineaVistaJugador();
+    }
+
+    bool TieneLineaVistaJugador()
+    {
+        Vector3 origen = modeloVisual != null
+            ? modeloVisual.position + Vector3.up * 1.4f
+            : transform.position + Vector3.up * 1.6f;
+        Vector3 destino = jugador.position + Vector3.up * 1f;
+        Vector3 dir = destino - origen;
+        float dist = dir.magnitude;
+        if (dist < 0.01f)
+            return true;
+
+        dir.Normalize();
+        RaycastHit[] hits = Physics.RaycastAll(origen, dir, dist + 0.5f);
+        System.Array.Sort(hits, (a, b) => a.distance.CompareTo(b.distance));
+
+        foreach (RaycastHit hit in hits)
+        {
+            if (EsParteDelJugador(hit.transform))
+                return true;
+            if (EsParteDelMonstruo(hit.transform))
+                continue;
+            return false;
+        }
+
+        return true;
     }
 
     void IniciarAtaque()
     {
-        if (EstaIluminada()) return;
-
-        if (!string.IsNullOrEmpty(animRage))
-        {
-            estado = Estado.Rage;
-            timerRage = 0f;
-            agent.isStopped = true;
-            ReproducirAnim(animRage);
-            return;
-        }
-
         estado = Estado.Atacando;
         timerAnimAtaque = 0f;
         ataqueAnimIniciado = false;
         muerteIniciada = false;
+        tiempoIluminado = 0f;
+        locomotionActual = "";
         agent.isStopped = false;
         agent.speed = velocidadCorrer;
         AplicarParadaMuerte();
-        agent.SetDestination(ObtenerPuntoFrenteJugador(distanciaMuerte));
+        agent.SetDestination(jugador.position);
     }
 
     void IniciarGolpeLuz()
     {
-        if (estado == Estado.GolpeLuz || estado == Estado.Retirandose) return;
+        if (estado == Estado.GolpeLuz)
+            return;
 
         estado = Estado.GolpeLuz;
         timerGolpeLuz = 0f;
         agent.isStopped = true;
+        agent.ResetPath();
         golpeLuzElegido = ElegirAleatoria(golpesLuz, "gethit1");
         ReproducirAnim(golpeLuzElegido);
     }
 
-    void IniciarRetirada()
+    void VolverAPatrulla()
     {
-        if (estado == Estado.Retirandose) return;
-
-        estado = Estado.Retirandose;
-        agent.isStopped = true;
-        agent.ResetPath();
-        animActual = "";
-        ReproducirAnim(string.IsNullOrEmpty(animRetirada) ? "walkback" : animRetirada);
-    }
-
-    void ReanudarCaceria()
-    {
-        ReanudarCaceriaTrasSpawn();
-    }
-
-    void ReanudarCaceriaTrasSpawn()
-    {
-        estado = Estado.Cazando;
+        estado = Estado.Patrullando;
+        tiempoIluminado = 0f;
+        timerAnimAtaque = 0f;
+        ataqueAnimIniciado = false;
+        muerteIniciada = false;
+        locomotionActual = "";
         agent.isStopped = false;
         agent.speed = velocidadCaminar;
-        timerDestino = intervaloActualizarDestino;
-        timerCambioWalk = 0f;
-        locomotionActual = "";
-        muerteIniciada = false;
-        timerRugido = 0f;
-        ataqueAnimIniciado = false;
+        ElegirNuevoPuntoRuta();
+    }
+
+    bool LlegoAPuntoRuta()
+    {
+        if (puntoRutaActual == null)
+            return true;
+
+        if (agent.pathPending)
+            return false;
+
+        if (agent.remainingDistance <= distanciaLlegadaRuta)
+            return true;
+
+        return !agent.hasPath || agent.remainingDistance == Mathf.Infinity;
+    }
+
+    void ElegirNuevoPuntoRuta()
+    {
+        if (puntosRuta == null || puntosRuta.Length == 0)
+        {
+            agent.ResetPath();
+            puntoRutaActual = null;
+            return;
+        }
+
+        Transform elegido = puntoRutaActual;
+        for (int intento = 0; intento < 8; intento++)
+        {
+            Transform candidato = puntosRuta[Random.Range(0, puntosRuta.Length)];
+            if (candidato == null)
+                continue;
+            if (puntosRuta.Length == 1 || candidato != puntoRutaActual)
+            {
+                elegido = candidato;
+                break;
+            }
+        }
+
+        puntoRutaActual = elegido;
+        agent.isStopped = false;
+        agent.SetDestination(puntoRutaActual.position);
     }
 
     IEnumerator CicloPrincipal()
@@ -668,7 +478,7 @@ public class MonsterController : MonoBehaviour
 
         if (!ObtenerPuntoSpawn(out Vector3 spawn))
         {
-            Debug.LogWarning("MonsterController: no hay punto de spawn válido.");
+            Debug.LogWarning("MonsterController: asigna al menos un punto en Puntos Spawn.");
             yield break;
         }
 
@@ -676,27 +486,16 @@ public class MonsterController : MonoBehaviour
         agent.Warp(spawn);
         agent.isStopped = false;
         agent.speed = velocidadCaminar;
-        agent.SetDestination(jugador.position);
 
         locomotionActual = "";
         muerteIniciada = false;
-        timerRugido = 0f;
+        ataqueAnimIniciado = false;
         SetVisible(true);
         ReproducirSonidoAparicion();
 
-        if (Random.value <= probabilidadSaltoSpawn && !string.IsNullOrEmpty(animSaltoSpawn))
-        {
-            estado = Estado.SaltoSpawn;
-            timerSaltoSpawn = 0f;
-            agent.isStopped = true;
-            ReproducirAnim(animSaltoSpawn);
-        }
-        else
-        {
-            estado = Estado.Cazando;
-            timerDestino = 0f;
-            ReproducirAnim(ElegirAleatoria(caminatas));
-        }
+        estado = Estado.Patrullando;
+        ElegirNuevoPuntoRuta();
+        EstablecerLocomotion(ElegirAleatoria(caminatas, caminatas[0]));
 
         while (estado != Estado.Inactivo)
             yield return null;
@@ -718,24 +517,27 @@ public class MonsterController : MonoBehaviour
         }
     }
 
-    Vector3 ObtenerPuntoFrenteJugador(float distancia)
+    bool ObtenerPuntoSpawn(out Vector3 posicion)
     {
-        Vector3 haciaMonstruo = transform.position - jugador.position;
-        haciaMonstruo.y = 0f;
+        posicion = transform.position;
 
-        if (haciaMonstruo.sqrMagnitude > 0.04f)
+        if (puntosSpawn == null || puntosSpawn.Length == 0)
+            return false;
+
+        for (int intento = 0; intento < 20; intento++)
         {
-            haciaMonstruo.Normalize();
-            return jugador.position + haciaMonstruo * distancia;
+            Transform punto = puntosSpawn[Random.Range(0, puntosSpawn.Length)];
+            if (punto == null)
+                continue;
+
+            if (NavMesh.SamplePosition(punto.position, out NavMeshHit hit, 4f, NavMesh.AllAreas))
+            {
+                posicion = hit.position;
+                return true;
+            }
         }
 
-        Vector3 forward = camara != null ? camara.forward : jugador.forward;
-        forward.y = 0f;
-        if (forward.sqrMagnitude < 0.01f)
-            forward = jugador.forward;
-
-        forward.Normalize();
-        return jugador.position + forward * distancia;
+        return false;
     }
 
     void AlinearFrenteAlJugador()
@@ -769,95 +571,38 @@ public class MonsterController : MonoBehaviour
         AlinearFrenteAlJugador();
     }
 
-    bool ObtenerPuntoSpawn(out Vector3 posicion)
+    Vector3 ObtenerPuntoFrenteJugador(float distancia)
     {
-        if (puntosSpawn != null && puntosSpawn.Length > 0)
+        Vector3 haciaMonstruo = transform.position - jugador.position;
+        haciaMonstruo.y = 0f;
+
+        if (haciaMonstruo.sqrMagnitude > 0.04f)
         {
-            for (int intento = 0; intento < 20; intento++)
-            {
-                Transform punto = puntosSpawn[Random.Range(0, puntosSpawn.Length)];
-                if (punto == null) continue;
-
-                Vector3 candidato = punto.position + Random.insideUnitSphere * 3f;
-                candidato.y = punto.position.y;
-
-                if (NavMesh.SamplePosition(candidato, out NavMeshHit hit, 6f, NavMesh.AllAreas)
-                    && EsSpawnValido(hit.position))
-                {
-                    posicion = hit.position;
-                    ultimaPosicionSpawn = posicion;
-                    return true;
-                }
-            }
+            haciaMonstruo.Normalize();
+            return jugador.position + haciaMonstruo * distancia;
         }
 
-        Vector3 mirada = camara.forward;
-        mirada.y = 0f;
-        if (mirada.sqrMagnitude < 0.001f)
-            mirada = -jugador.forward;
-        mirada.Normalize();
+        Vector3 forward = camara != null ? camara.forward : jugador.forward;
+        forward.y = 0f;
+        if (forward.sqrMagnitude < 0.01f)
+            forward = jugador.forward;
 
-        for (int i = 0; i < 30; i++)
-        {
-            float angulo = Random.Range(90f, 270f);
-            Vector3 dir = Quaternion.Euler(0f, angulo, 0f) * mirada;
-            float dist = Random.Range(distanciaMinSpawn, distanciaMaxSpawn);
-            Vector3 candidato = jugador.position + dir * dist;
-
-            if (NavMesh.SamplePosition(candidato, out NavMeshHit hit, distanciaMaxSpawn, NavMesh.AllAreas)
-                && EsSpawnValido(hit.position))
-            {
-                posicion = hit.position;
-                ultimaPosicionSpawn = posicion;
-                return true;
-            }
-        }
-
-        if (NavMesh.SamplePosition(jugador.position, out NavMeshHit fallback, distanciaMaxSpawn, NavMesh.AllAreas)
-            && EsSpawnValido(fallback.position))
-        {
-            posicion = fallback.position;
-            ultimaPosicionSpawn = posicion;
-            return true;
-        }
-
-        posicion = jugador.position;
-        return false;
-    }
-
-    bool EsSpawnValido(Vector3 pos)
-    {
-        if (Mathf.Abs(pos.y - jugador.position.y) > diferenciaAlturaMax)
-            return false;
-        if (Vector3.Distance(pos, jugador.position) < distanciaMinSpawn)
-            return false;
-        if (Vector3.Distance(pos, ultimaPosicionSpawn) < 5f)
-            return false;
-        return true;
+        forward.Normalize();
+        return jugador.position + forward * distancia;
     }
 
     void ActualizarRotacion()
     {
         Vector3 dir = Vector3.zero;
 
-        if ((estado == Estado.Retirandose && mirarAlJugadorAlHuir)
-            || estado == Estado.Observando
-            || estado == Estado.GolpeLuz
-            || estado == Estado.AdvertenciaAtaque)
-        {
+        if (estado == Estado.Atacando || estado == Estado.GolpeLuz)
             dir = jugador.position - transform.position;
-        }
         else if (agent != null && agent.enabled && agent.velocity.sqrMagnitude > 0.01f)
-        {
             dir = agent.velocity;
-        }
-        else if (jugador != null)
-        {
-            dir = jugador.position - transform.position;
-        }
 
         dir.y = 0f;
-        if (dir.sqrMagnitude < 0.001f) return;
+        if (dir.sqrMagnitude < 0.001f)
+            return;
 
         transform.rotation = Quaternion.LookRotation(dir.normalized);
     }
@@ -907,8 +652,10 @@ public class MonsterController : MonoBehaviour
 
     void ReproducirAnim(string nombre)
     {
-        if (animator == null || string.IsNullOrEmpty(nombre)) return;
-        if (animActual == nombre && EstaEnAnim(nombre)) return;
+        if (animator == null || string.IsNullOrEmpty(nombre))
+            return;
+        if (animActual == nombre && EstaEnAnim(nombre))
+            return;
 
         animActual = nombre;
         animator.Play(nombre, 0, 0f);
@@ -916,7 +663,8 @@ public class MonsterController : MonoBehaviour
 
     void MantenerAnimLoop(string nombre)
     {
-        if (animator == null || string.IsNullOrEmpty(nombre)) return;
+        if (animator == null || string.IsNullOrEmpty(nombre))
+            return;
 
         if (!EstaEnAnim(nombre))
         {
@@ -945,40 +693,13 @@ public class MonsterController : MonoBehaviour
 
     void ReproducirSonidoAparicion()
     {
-        if (sonidoAparicion == null) return;
+        if (sonidoAparicion == null)
+            return;
 
         if (sonidoAparicionGlobal)
             ReproducirSonido2D(sonidoAparicion, volumenAparicion);
         else if (audioSource != null)
             audioSource.PlayOneShot(sonidoAparicion, volumenAparicion);
-    }
-
-    void ActualizarRugido()
-    {
-        if (sonidoObservacion == null)
-            return;
-
-        timerRugido += Time.deltaTime;
-        if (timerRugido >= intervaloRugido)
-        {
-            timerRugido = 0f;
-            ReproducirSonidoObservacion();
-        }
-    }
-
-    void ReproducirSonidoObservacion()
-    {
-        if (sonidoObservacion == null) return;
-
-        if (sonidoObservacionGlobal)
-            ReproducirSonido2D(sonidoObservacion, volumenObservacion);
-        else if (audioSource != null)
-        {
-            audioSource.spatialBlend = 1f;
-            audioSource.PlayOneShot(sonidoObservacion, volumenObservacion);
-        }
-        else
-            AudioSource.PlayClipAtPoint(sonidoObservacion, transform.position, volumenObservacion);
     }
 
     void ReproducirSonido2D(AudioClip clip, float volumen)
@@ -1013,7 +734,8 @@ public class MonsterController : MonoBehaviour
 
     bool EstaIluminada()
     {
-        if (estado == Estado.Inactivo || !LuzJugadorEncendida()) return false;
+        if (estado == Estado.Inactivo || !LuzJugadorEncendida())
+            return false;
 
         foreach (Vector3 punto in ObtenerPuntosDeteccion())
         {
@@ -1057,7 +779,8 @@ public class MonsterController : MonoBehaviour
     {
         Vector3 dirObjetivo = punto - origen;
         float distancia = dirObjetivo.magnitude;
-        if (distancia > distanciaMaxLuz || distancia < 0.01f) return false;
+        if (distancia > distanciaMaxLuz || distancia < 0.01f)
+            return false;
 
         return Vector3.Angle(direccion, dirObjetivo) <= anguloMax;
     }
@@ -1067,7 +790,8 @@ public class MonsterController : MonoBehaviour
         Vector3 origen = camara.position;
         Vector3 dir = punto - origen;
         float distObjetivo = dir.magnitude;
-        if (distObjetivo < 0.01f) return true;
+        if (distObjetivo < 0.01f)
+            return true;
 
         dir.Normalize();
         RaycastHit[] hits = Physics.RaycastAll(origen, dir, distObjetivo + 0.5f);
@@ -1075,9 +799,12 @@ public class MonsterController : MonoBehaviour
 
         foreach (RaycastHit hit in hits)
         {
-            if (EsParteDelJugador(hit.transform)) continue;
-            if (EsParteDelMonstruo(hit.transform)) return true;
-            if (hit.distance < distObjetivo - 0.4f) return false;
+            if (EsParteDelJugador(hit.transform))
+                continue;
+            if (EsParteDelMonstruo(hit.transform))
+                return true;
+            if (hit.distance < distObjetivo - 0.4f)
+                return false;
         }
 
         return true;
@@ -1113,4 +840,32 @@ public class MonsterController : MonoBehaviour
             return linterna.flashlight.spotAngle * 0.5f;
         return anguloDeteccionLuz;
     }
+
+#if UNITY_EDITOR
+    void OnDrawGizmosSelected()
+    {
+        Gizmos.color = Color.red;
+        Gizmos.DrawWireSphere(transform.position + Vector3.up, distanciaDeteccion);
+
+        if (puntosSpawn != null)
+        {
+            Gizmos.color = Color.yellow;
+            foreach (Transform punto in puntosSpawn)
+            {
+                if (punto != null)
+                    Gizmos.DrawWireSphere(punto.position, 0.6f);
+            }
+        }
+
+        if (puntosRuta != null)
+        {
+            Gizmos.color = Color.cyan;
+            foreach (Transform punto in puntosRuta)
+            {
+                if (punto != null)
+                    Gizmos.DrawWireSphere(punto.position, 0.45f);
+            }
+        }
+    }
+#endif
 }
